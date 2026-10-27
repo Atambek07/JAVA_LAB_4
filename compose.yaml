@@ -1,0 +1,26 @@
+# Docker Compose для лабораторной работы № 4
+# Запуск:   export DB_PASSWORD=secret
+#           docker compose up -d
+services:
+  db:
+    image: postgres:17
+    container_name: library-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-library}
+      POSTGRES_USER: ${POSTGRES_USER:-library}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      # Хост-порт по умолчанию 5432 (по заданию). Если на хосте уже занят другим
+      # сервером PostgreSQL, можно переопределить: export DB_PORT=5433
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - library-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-library} -d ${POSTGRES_DB:-library}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  library-db-data:

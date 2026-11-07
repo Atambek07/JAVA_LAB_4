@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -46,6 +47,27 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler({BookUnavailableException.class, LimitExceededException.class, OverdueException.class})
     public ResponseEntity<Object> handleConflict(LibraryException ex, WebRequest request) {
         return toResponse(ex, HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
+    /**
+     * Сортировка по недопустимому полю — 400 Bad Request (Задание 1).
+     */
+    @ExceptionHandler(InvalidSortException.class)
+    public ResponseEntity<Object> handleInvalidSort(InvalidSortException ex, WebRequest request) {
+        return toResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    /**
+     * Оптимистическая блокировка: версия объекта устарела (Задание 4) — 409 Conflict.
+     * Возникает, когда клиент отправляет PUT с версией, не совпадающей с текущей
+     * в базе, или когда конкурентное обновление уже произошло.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Object> handleOptimisticLock(ObjectOptimisticLockingFailureException ex, WebRequest request) {
+        log.warn("Конфликт версий (оптимистическая блокировка): {}", ex.getMessage());
+        return toResponse(ex, HttpStatus.CONFLICT,
+                "Данные были изменены другим пользователем: версия устарела. "
+                        + "Получите актуальные данные и повторите попытку.", request);
     }
 
     /** Общий конфликт (повторное создание, удаление с активными выдачами) — 409 Conflict. */

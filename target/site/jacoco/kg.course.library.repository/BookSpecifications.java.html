@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BookSpecifications.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.repository</a> &gt; <span class="el_source">BookSpecifications.java</span></div><h1>BookSpecifications.java</h1><pre class="source lang-java linenums">package kg.course.library.repository;
+
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+import kg.course.library.entity.Book;
+import kg.course.library.entity.Loan;
+import org.springframework.data.jpa.domain.Specification;
+
+/**
+ * Спецификации фильтрации каталога книг (Задание 2).
+ * &lt;p&gt;
+ * Каждая спецификация — самостоятельное правило; параметры {@code null} или
+ * пустые НЕ добавляют ограничений (возвращают {@code null}, что Spring Data
+ * трактует как «условие отсутствует»). Спецификации комбинируются через
+ * {@code Specification.where(...).and(...)}.
+ * &lt;/p&gt;
+ */
+public final class BookSpecifications {
+
+    private BookSpecifications() {
+    }
+
+    /** Название содержит фрагмент без учёта регистра (LOWER + LIKE). */
+    public static Specification&lt;Book&gt; hasTitle(String fragment) {
+<span class="fc" id="L27">        return (root, query, cb) -&gt; {</span>
+<span class="pc bpc" id="L28" title="2 of 4 branches missed.">            if (fragment == null || fragment.isBlank()) {</span>
+<span class="nc" id="L29">                return null;</span>
+            }
+<span class="fc" id="L31">            Expression&lt;String&gt; lowerTitle = cb.lower(root.get(&quot;title&quot;));</span>
+<span class="fc" id="L32">            return cb.like(lowerTitle, &quot;%&quot; + fragment.trim().toLowerCase() + &quot;%&quot;);</span>
+        };
+    }
+
+    /** Книга написана автором с заданным именем (JOIN с таблицей authors, точное имя). */
+    public static Specification&lt;Book&gt; hasAuthor(String authorName) {
+<span class="fc" id="L38">        return (root, query, cb) -&gt; {</span>
+<span class="pc bpc" id="L39" title="2 of 4 branches missed.">            if (authorName == null || authorName.isBlank()) {</span>
+<span class="nc" id="L40">                return null;</span>
+            }
+<span class="fc" id="L42">            var authors = root.join(&quot;authors&quot;);</span>
+<span class="fc" id="L43">            return cb.equal(cb.lower(authors.get(&quot;name&quot;)), authorName.trim().toLowerCase());</span>
+        };
+    }
+
+    /** Год издания в диапазоне yearFrom–yearTo; любая из границ может отсутствовать. */
+    public static Specification&lt;Book&gt; yearBetween(Integer yearFrom, Integer yearTo) {
+<span class="fc" id="L49">        return (root, query, cb) -&gt; {</span>
+<span class="pc bpc" id="L50" title="1 of 4 branches missed.">            if (yearFrom == null &amp;&amp; yearTo == null) {</span>
+<span class="nc" id="L51">                return null;</span>
+            }
+<span class="fc" id="L53">            jakarta.persistence.criteria.Path&lt;Integer&gt; year = root.get(&quot;year&quot;);</span>
+<span class="fc bfc" id="L54" title="All 4 branches covered.">            if (yearFrom != null &amp;&amp; yearTo != null) {</span>
+<span class="fc" id="L55">                return cb.between(year, yearFrom, yearTo);</span>
+            }
+<span class="fc bfc" id="L57" title="All 2 branches covered.">            if (yearFrom != null) {</span>
+<span class="fc" id="L58">                return cb.greaterThanOrEqualTo(year, yearFrom);</span>
+            }
+<span class="fc" id="L60">            return cb.lessThanOrEqualTo(year, yearTo);</span>
+        };
+    }
+
+    /**
+     * Есть свободные экземпляры: {@code copies &gt; число активных выдач}.
+     * Число активных выдач — подзапрос
+     * {@code SELECT count(l.id) FROM Loan l WHERE l.book = book AND l.returnedOn IS NULL}.
+     */
+    public static Specification&lt;Book&gt; hasAvailableCopies() {
+<span class="fc" id="L70">        return (root, query, cb) -&gt; {</span>
+<span class="fc" id="L71">            Subquery&lt;Long&gt; sub = query.subquery(Long.class);</span>
+<span class="fc" id="L72">            Root&lt;Loan&gt; loan = sub.from(Loan.class);</span>
+<span class="fc" id="L73">            sub.select(cb.count(loan)).where(</span>
+<span class="fc" id="L74">                    cb.equal(loan.get(&quot;book&quot;), root),</span>
+<span class="fc" id="L75">                    cb.isNull(loan.get(&quot;returnedOn&quot;)));</span>
+<span class="fc" id="L76">            return cb.greaterThan(root.get(&quot;copies&quot;), sub);</span>
+        };
+    }
+
+    /** Комбинация всех фильтров поиска; каждый фильтр учитывается, только если параметр задан. */
+    public static Specification&lt;Book&gt; search(String title, String author,
+                                             Integer yearFrom, Integer yearTo, Boolean available) {
+<span class="fc" id="L83">        Specification&lt;Book&gt; spec = Specification.where(hasTitle(title));</span>
+<span class="fc" id="L84">        spec = spec.and(hasAuthor(author));</span>
+<span class="fc" id="L85">        spec = spec.and(yearBetween(yearFrom, yearTo));</span>
+<span class="pc bpc" id="L86" title="2 of 4 branches missed.">        if (available != null &amp;&amp; available) {</span>
+<span class="fc" id="L87">            spec = spec.and(hasAvailableCopies());</span>
+        }
+<span class="fc" id="L89">        return spec;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

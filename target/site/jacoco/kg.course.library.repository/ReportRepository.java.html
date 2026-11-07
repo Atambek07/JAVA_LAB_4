@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.repository</a> &gt; <span class="el_source">ReportRepository.java</span></div><h1>ReportRepository.java</h1><pre class="source lang-java linenums">package kg.course.library.repository;
+
+import kg.course.library.BookStat;
+import kg.course.library.ReaderCategory;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+/**
+ * Репозиторий отчётов на {@link JdbcClient} (Spring JDBC).
+ * &lt;p&gt;
+ * Все значения отчётов передаются ТОЛЬКО через именованные параметры
+ * ({@code :name}), что обеспечивает защиту от SQL-инъекций (см.
+ * {@link #searchBooksByTitle(String)}).
+ * &lt;/p&gt;
+ */
+@Repository
+public class ReportRepository {
+
+    private final JdbcClient jdbcClient;
+
+<span class="fc" id="L27">    public ReportRepository(JdbcClient jdbcClient) {</span>
+<span class="fc" id="L28">        this.jdbcClient = jdbcClient;</span>
+<span class="fc" id="L29">    }</span>
+
+    /**
+     * N самых популярных книг по числу выдач (JOIN + GROUP BY + ORDER BY + LIMIT).
+     * Книги без выдач тоже включаются (левое соединение) — как в лабораторной № 3.
+     */
+    public List&lt;BookStat&gt; topBooks(int n) {
+<span class="fc" id="L36">        return jdbcClient.sql(&quot;&quot;&quot;</span>
+                        SELECT b.title   AS title,
+                               COUNT(l.id) AS loans
+                        FROM books b
+                        LEFT JOIN loans l ON l.book_isbn = b.isbn
+                        GROUP BY b.isbn, b.title
+                        ORDER BY loans DESC, b.title ASC
+                        LIMIT :n
+                        &quot;&quot;&quot;)
+<span class="fc" id="L45">                .param(&quot;n&quot;, n)</span>
+<span class="fc" id="L46">                .query((rs, rowNum) -&gt; new BookStat(rs.getString(&quot;title&quot;), rs.getLong(&quot;loans&quot;)))</span>
+<span class="fc" id="L47">                .list();</span>
+    }
+
+    /** Количество выдач по категориям читателей (JOIN + GROUP BY). */
+    public Map&lt;ReaderCategory, Long&gt; loansByCategory() {
+<span class="fc" id="L52">        return jdbcClient.sql(&quot;&quot;&quot;</span>
+                        SELECT r.category AS category,
+                               COUNT(l.id)   AS cnt
+                        FROM readers r
+                        LEFT JOIN loans l ON l.card_number = r.card_number
+                        GROUP BY r.category
+                        ORDER BY r.category
+                        &quot;&quot;&quot;)
+<span class="fc" id="L60">                .query((rs, rowNum) -&gt; new Object[]{</span>
+<span class="fc" id="L61">                        ReaderCategory.valueOf(rs.getString(&quot;category&quot;)),</span>
+<span class="fc" id="L62">                        rs.getLong(&quot;cnt&quot;)</span>
+                })
+<span class="fc" id="L64">                .list()</span>
+<span class="fc" id="L65">                .stream()</span>
+<span class="fc" id="L66">                .collect(LinkedHashMap::new,</span>
+<span class="fc" id="L67">                        (map, row) -&gt; map.put((ReaderCategory) row[0], (Long) row[1]),</span>
+                        LinkedHashMap::putAll);
+    }
+
+    /** Все авторы каталога в алфавитном порядке. */
+    public SortedSet&lt;String&gt; allAuthors() {
+<span class="fc" id="L73">        return new TreeSet&lt;&gt;(jdbcClient.sql(&quot;&quot;&quot;</span>
+                        SELECT name
+                        FROM authors
+                        ORDER BY name
+                        &quot;&quot;&quot;)
+<span class="fc" id="L78">                .query((rs, rowNum) -&gt; rs.getString(&quot;name&quot;))</span>
+<span class="fc" id="L79">                .list());</span>
+    }
+
+    /**
+     * БЕЗОПАСНЫЙ поиск книг по названию через {@link JdbcClient}.
+     * &lt;p&gt;
+     * Фрагмент передаётся именованным параметром {@code :fragment} — база данных
+     * трактует его как литерал, поэтому инъекционные выражения вида
+     * {@code ' OR '1'='1} или {@code UNION SELECT ...} не исполняются, а
+     * воспринимаются как обычный текст для поиска.
+     * &lt;/p&gt;
+     */
+    public List&lt;BookSearchRow&gt; searchBooksByTitle(String fragment) {
+<span class="fc" id="L92">        return jdbcClient.sql(&quot;&quot;&quot;</span>
+                        SELECT b.isbn   AS isbn,
+                               b.title  AS title,
+                               b.year   AS year,
+                               b.copies AS copies,
+                               COALESCE(STRING_AGG(a.name, ', ' ORDER BY a.name), '') AS authors
+                        FROM books b
+                        LEFT JOIN book_authors ba ON ba.book_isbn = b.isbn
+                        LEFT JOIN authors a       ON a.id = ba.author_id
+                        WHERE b.title ILIKE '%' || :fragment || '%'
+                        GROUP BY b.isbn, b.title, b.year, b.copies
+                        ORDER BY b.title ASC
+                        &quot;&quot;&quot;)
+<span class="fc" id="L105">                .param(&quot;fragment&quot;, fragment)</span>
+<span class="fc" id="L106">                .query((rs, rowNum) -&gt; new BookSearchRow(</span>
+<span class="fc" id="L107">                        rs.getString(&quot;isbn&quot;),</span>
+<span class="fc" id="L108">                        rs.getString(&quot;title&quot;),</span>
+<span class="fc" id="L109">                        rs.getInt(&quot;year&quot;),</span>
+<span class="fc" id="L110">                        rs.getInt(&quot;copies&quot;),</span>
+<span class="fc" id="L111">                        rs.getString(&quot;authors&quot;)))</span>
+<span class="fc" id="L112">                .list();</span>
+    }
+
+    /** Строка результата безопасного поиска книг по названию. */
+<span class="fc" id="L116">    public record BookSearchRow(String isbn, String title, int year, int copies, String authors) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

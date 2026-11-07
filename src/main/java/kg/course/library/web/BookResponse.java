@@ -6,7 +6,8 @@ import kg.course.library.entity.Book;
 import java.util.List;
 
 /**
- * Ответ API, представляющий книгу каталога с количеством экземпляров.
+ * Ответ API, представляющий книгу каталога с количеством экземпляров
+ * и версией для оптимистической блокировки.
  */
 public record BookResponse(
         String isbn,
@@ -14,7 +15,8 @@ public record BookResponse(
         List<String> authors,
         int year,
         int totalCopies,
-        int availableCopies
+        int availableCopies,
+        int version
 ) {
 
     /**
@@ -29,7 +31,8 @@ public record BookResponse(
                 book.getAuthors().stream().map(Author::getName).toList(),
                 book.getYear(),
                 book.getCopies(),
-                availableCopies
+                availableCopies,
+                book.getVersion() == null ? 0 : book.getVersion()
         );
     }
 }

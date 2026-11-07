@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Reader.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.entity</a> &gt; <span class="el_source">Reader.java</span></div><h1>Reader.java</h1><pre class="source lang-java linenums">package kg.course.library.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import kg.course.library.ReaderCategory;
+
+/**
+ * JPA-сущность «Читатель».
+ * &lt;p&gt;
+ * Первичный ключ — номер билета. Категория хранится как строка
+ * ({@code @Enumerated(EnumType.STRING)}), чтобы значения в БД совпадали с
+ * именами констант {@link ReaderCategory}.
+ * &lt;/p&gt;
+ */
+@Entity
+@Table(name = &quot;readers&quot;)
+public class Reader {
+
+    @Id
+    @Column(name = &quot;card_number&quot;, length = 7, nullable = false)
+    private String cardNumber;
+
+    @Column(name = &quot;full_name&quot;, nullable = false)
+    private String fullName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = &quot;category&quot;, nullable = false)
+    private ReaderCategory category;
+
+    /** Конструктор без параметров для JPA (protected). */
+<span class="fc" id="L35">    protected Reader() {</span>
+<span class="fc" id="L36">    }</span>
+
+    /** Открытый конструктор с проверкой аргументов. */
+<span class="fc" id="L39">    public Reader(String cardNumber, String fullName, ReaderCategory category) {</span>
+<span class="fc bfc" id="L40" title="All 4 branches covered.">        if (cardNumber == null || !cardNumber.matches(&quot;R-\\d{5}&quot;)) {</span>
+<span class="fc" id="L41">            throw new IllegalArgumentException(&quot;Неверный формат номера билета (ожидается R-00000): &quot; + cardNumber);</span>
+        }
+<span class="fc bfc" id="L43" title="All 4 branches covered.">        if (fullName == null || fullName.isBlank()) {</span>
+<span class="fc" id="L44">            throw new IllegalArgumentException(&quot;ФИО читателя не может быть пустым&quot;);</span>
+        }
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (category == null) {</span>
+<span class="fc" id="L47">            throw new IllegalArgumentException(&quot;Категория читателя должна быть задана&quot;);</span>
+        }
+<span class="fc" id="L49">        this.cardNumber = cardNumber;</span>
+<span class="fc" id="L50">        this.fullName = fullName;</span>
+<span class="fc" id="L51">        this.category = category;</span>
+<span class="fc" id="L52">    }</span>
+
+    public String getCardNumber() {
+<span class="fc" id="L55">        return cardNumber;</span>
+    }
+
+    public String getFullName() {
+<span class="fc" id="L59">        return fullName;</span>
+    }
+
+    public void setFullName(String fullName) {
+<span class="fc" id="L63">        this.fullName = fullName;</span>
+<span class="fc" id="L64">    }</span>
+
+    public ReaderCategory getCategory() {
+<span class="fc" id="L67">        return category;</span>
+    }
+
+    public void setCategory(ReaderCategory category) {
+<span class="fc" id="L71">        this.category = category;</span>
+<span class="fc" id="L72">    }</span>
+
+    /** {@code equals}/{@code hashCode} — только по первичному ключу. */
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (this == o) {</span>
+<span class="fc" id="L78">            return true;</span>
+        }
+<span class="fc bfc" id="L80" title="All 4 branches covered.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="fc" id="L81">            return false;</span>
+        }
+<span class="fc" id="L83">        Reader reader = (Reader) o;</span>
+<span class="pc bpc" id="L84" title="1 of 4 branches missed.">        return cardNumber != null &amp;&amp; cardNumber.equals(reader.cardNumber);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L89">        return getClass().hashCode();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L94">        return &quot;Reader{cardNumber='&quot; + cardNumber + &quot;', fullName='&quot; + fullName + &quot;', category=&quot; + category + &quot;}&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

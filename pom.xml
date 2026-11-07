@@ -75,6 +75,34 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Тестовый стартер для @DataJpaTest (срез JPA-слоя) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers: интеграция Spring Boot (@ServiceConnection) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers: модуль PostgreSQL 17 (артефакт переименован в testcontainers-postgresql начиная с 2.0) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers: JUnit 5 интеграция (управление жизненным циклом контейнеров) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -82,6 +110,74 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Задание 8: покрытие кода тестами (JaCoCo) -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <configuration>
+                    <excludes>
+                        <!-- DTO-records и request/response классы не тестируются напрямую -->
+                        <exclude>kg/course/library/web/*Response.class</exclude>
+                        <exclude>kg/course/library/web/*Request.class</exclude>
+                        <exclude>kg/course/library/PageResponse.class</exclude>
+                        <!-- Исключения — простые контейнеры сообщений об ошибке -->
+                        <exclude>kg/course/library/*Exception.class</exclude>
+                        <exclude>kg/course/library/LibraryException.class</exclude>
+                        <!-- Конфигурация -->
+                        <exclude>kg/course/library/config/*</exclude>
+                        <!-- Точка входа приложения -->
+                        <exclude>kg/course/library/LibraryApplication.class</exclude>
+                        <!-- Тестовый контроллер для проверки 500-ошибки -->
+                        <exclude>kg/course/library/web/TestBoomController.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <!-- Настраивает агент JaCoCo перед выполнением тестов -->
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <!-- Генерирует HTML/XML отчёт: target/site/jacoco/index.html -->
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <!-- Проверяет минимальное покрытие: падение билда, если < 60% -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

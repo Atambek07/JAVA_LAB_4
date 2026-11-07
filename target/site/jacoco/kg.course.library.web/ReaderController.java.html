@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReaderController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.web</a> &gt; <span class="el_source">ReaderController.java</span></div><h1>ReaderController.java</h1><pre class="source lang-java linenums">package kg.course.library.web;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import kg.course.library.LibraryService;
+import kg.course.library.entity.Reader;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.net.URI;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * REST-контроллер читателей.
+ */
+@RestController
+@RequestMapping(&quot;/api/readers&quot;)
+@Tag(name = &quot;Читатели&quot;, description = &quot;Регистрация читателей и их активные выдачи&quot;)
+public class ReaderController {
+
+    private final LibraryService library;
+    private final Clock clock;
+
+<span class="fc" id="L32">    public ReaderController(LibraryService library, Clock clock) {</span>
+<span class="fc" id="L33">        this.library = library;</span>
+<span class="fc" id="L34">        this.clock = clock;</span>
+<span class="fc" id="L35">    }</span>
+
+    /** Список всех читателей. */
+    @GetMapping
+    @Operation(summary = &quot;Список читателей&quot;)
+    public List&lt;ReaderResponse&gt; findAll() {
+<span class="nc" id="L41">        return library.findAllReaders().stream()</span>
+<span class="nc" id="L42">                .map(ReaderResponse::from)</span>
+<span class="nc" id="L43">                .toList();</span>
+    }
+
+    /** Читатель по номеру билета. */
+    @GetMapping(&quot;/{cardNumber}&quot;)
+    @Operation(summary = &quot;Читатель по номеру билета&quot;)
+    public ReaderResponse findByCardNumber(@PathVariable String cardNumber) {
+<span class="fc" id="L50">        return ReaderResponse.from(library.getReader(cardNumber));</span>
+    }
+
+    /**
+     * Регистрация читателя. Повторная регистрация билета с тем же номером — 409 Conflict.
+     */
+    @PostMapping
+    @Operation(summary = &quot;Регистрация читателя&quot;)
+    public ResponseEntity&lt;ReaderResponse&gt; create(@Valid @RequestBody CreateReaderRequest request) {
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (library.findReader(request.cardNumber()).isPresent()) {</span>
+<span class="fc" id="L60">            throw new IllegalStateException(</span>
+<span class="fc" id="L61">                    &quot;Читатель с номером билета &quot; + request.cardNumber() + &quot; уже зарегистрирован&quot;);</span>
+        }
+
+<span class="fc" id="L64">        Reader reader = new Reader(request.cardNumber(), request.fullName(), request.category());</span>
+<span class="fc" id="L65">        library.registerReader(reader);</span>
+
+<span class="fc" id="L67">        ReaderResponse body = ReaderResponse.from(reader);</span>
+<span class="fc" id="L68">        return ResponseEntity</span>
+<span class="fc" id="L69">                .created(URI.create(&quot;/api/readers/&quot; + reader.getCardNumber()))</span>
+<span class="fc" id="L70">                .body(body);</span>
+    }
+
+    /** Активные выдачи читателя. */
+    @GetMapping(&quot;/{cardNumber}/loans&quot;)
+    @Operation(summary = &quot;Активные выдачи читателя&quot;)
+    public List&lt;LoanResponse&gt; activeLoans(@PathVariable String cardNumber) {
+<span class="nc" id="L77">        library.getReader(cardNumber);</span>
+<span class="nc" id="L78">        LocalDate today = LocalDate.now(clock);</span>
+<span class="nc" id="L79">        return library.activeLoans(cardNumber).stream()</span>
+<span class="nc" id="L80">                .map(loan -&gt; LoanResponse.from(loan, today))</span>
+<span class="nc" id="L81">                .toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

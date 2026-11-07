@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReportWriter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library</a> &gt; <span class="el_source">ReportWriter.java</span></div><h1>ReportWriter.java</h1><pre class="source lang-java linenums">package kg.course.library;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+<span class="fc" id="L11">public class ReportWriter {</span>
+    public void writeOverdueReport(Library library, LocalDate today, Path file) throws IOException {
+<span class="fc" id="L13">        LibraryReports reports = new LibraryReports(library);</span>
+<span class="fc" id="L14">        List&lt;Loan&gt; overdue = reports.overdueLoans(today);</span>
+
+<span class="fc" id="L16">        try (BufferedWriter writer = Files.newBufferedWriter(file)) {</span>
+<span class="fc" id="L17">            writer.write(&quot;cardNumber;fullName;title;dueOn;daysOverdue&quot;);</span>
+<span class="fc" id="L18">            writer.newLine();</span>
+
+<span class="fc bfc" id="L20" title="All 2 branches covered.">            for (Loan loan : overdue) {</span>
+<span class="fc" id="L21">                Reader reader = library.getReader(loan.cardNumber());</span>
+<span class="fc" id="L22">                Book book = library.getBook(loan.isbn());</span>
+<span class="fc" id="L23">                long daysOverdue = ChronoUnit.DAYS.between(loan.dueOn(), today);</span>
+
+<span class="fc" id="L25">                writer.write(String.format(&quot;%s;%s;%s;%s;%d&quot;,</span>
+<span class="fc" id="L26">                        reader.cardNumber(),</span>
+<span class="fc" id="L27">                        reader.fullName(),</span>
+<span class="fc" id="L28">                        book.title(),</span>
+<span class="fc" id="L29">                        loan.dueOn(),</span>
+<span class="fc" id="L30">                        daysOverdue));</span>
+<span class="fc" id="L31">                writer.newLine();</span>
+<span class="fc" id="L32">            }</span>
+        }
+<span class="fc" id="L34">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

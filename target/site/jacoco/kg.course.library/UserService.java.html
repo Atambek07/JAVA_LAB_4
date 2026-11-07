@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library</a> &gt; <span class="el_source">UserService.java</span></div><h1>UserService.java</h1><pre class="source lang-java linenums">package kg.course.library;
+
+import kg.course.library.entity.User;
+import kg.course.library.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+/**
+ * Сервисный слой «Пользователи» — CRUD по таблице {@code users}
+ * (миграция V3__add.sql). Дополнение лабораторной работы № 5.
+ */
+@Service
+public class UserService {
+
+    private final UserRepository userRepository;
+
+<span class="fc" id="L20">    public UserService(UserRepository userRepository) {</span>
+<span class="fc" id="L21">        this.userRepository = userRepository;</span>
+<span class="fc" id="L22">    }</span>
+
+    /** Список пользователей с пагинацией. */
+    @Transactional(readOnly = true)
+    public Page&lt;User&gt; findAll(org.springframework.data.domain.Pageable pageable) {
+<span class="nc" id="L27">        return userRepository.findAllByOrderByIdAsc(pageable);</span>
+    }
+
+    /** Поиск пользователя по идентификатору. */
+    @Transactional(readOnly = true)
+    public Optional&lt;User&gt; findUser(long id) {
+<span class="nc" id="L33">        return userRepository.findById(id);</span>
+    }
+
+    /** Пользователь по идентификатору; если отсутствует — {@link NotFoundException} (404). */
+    @Transactional(readOnly = true)
+    public User getUser(long id) {
+<span class="nc" id="L39">        return findUser(id).orElseThrow(() -&gt;</span>
+<span class="nc" id="L40">                new NotFoundException(&quot;Пользователь с id &quot; + id + &quot; не найден&quot;));</span>
+    }
+
+    /**
+     * Регистрация пользователя. ИНН уникален: повторная регистрация того же
+     * ИНН — {@link IllegalStateException} (409).
+     */
+    @Transactional
+    public User register(User user) {
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (userRepository.existsByInn(user.getInn())) {</span>
+<span class="nc" id="L50">            throw new IllegalStateException(&quot;Пользователь с ИНН &quot; + user.getInn() + &quot; уже зарегистрирован&quot;);</span>
+        }
+<span class="nc" id="L52">        return userRepository.save(user);</span>
+    }
+
+    /** Изменение имени и возраста пользователя. */
+    @Transactional
+    public User update(long id, String name, Integer age) {
+<span class="nc" id="L58">        User user = getUser(id);</span>
+<span class="nc" id="L59">        user.setName(name);</span>
+<span class="nc" id="L60">        user.setAge(age);</span>
+<span class="nc" id="L61">        return userRepository.save(user);</span>
+    }
+
+    /** Удаление пользователя; если отсутствует — {@link NotFoundException} (404). */
+    @Transactional
+    public void remove(long id) {
+<span class="nc" id="L67">        User user = getUser(id);</span>
+<span class="nc" id="L68">        userRepository.delete(user);</span>
+<span class="nc" id="L69">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

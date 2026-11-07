@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LoanController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.web</a> &gt; <span class="el_source">LoanController.java</span></div><h1>LoanController.java</h1><pre class="source lang-java linenums">package kg.course.library.web;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import kg.course.library.Isbn;
+import kg.course.library.LibraryService;
+import kg.course.library.entity.Loan;
+import kg.course.library.repository.LoanSpecifications;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.net.URI;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.Set;
+
+/**
+ * REST-контроллер выдач книг.
+ * &lt;p&gt;
+ * С лабораторной работы № 5 список выдач поддерживает пагинацию и фильтры
+ * ({@code cardNumber}, {@code status}, {@code from}, {@code to}); сортировка
+ * по умолчанию — по дате выдачи в порядке убывания. Контракт старого
+ * параметра {@code overdue=true} сохранён: он эквивалентен {@code status=OVERDUE}.
+ * &lt;/p&gt;
+ */
+@RestController
+@RequestMapping(&quot;/api/loans&quot;)
+@Tag(name = &quot;Выдачи&quot;, description = &quot;Выдача книг читателям и возврат&quot;)
+public class LoanController {
+
+    /** Максимальный размер страницы. */
+    static final int MAX_PAGE_SIZE = 100;
+
+    /** Допустимые значения статуса выдачи. */
+<span class="fc" id="L47">    static final Set&lt;String&gt; ALLOWED_STATUSES = Set.of(&quot;ACTIVE&quot;, &quot;RETURNED&quot;, &quot;OVERDUE&quot;);</span>
+
+    private final LibraryService library;
+    private final Clock clock;
+
+<span class="fc" id="L52">    public LoanController(LibraryService library, Clock clock) {</span>
+<span class="fc" id="L53">        this.library = library;</span>
+<span class="fc" id="L54">        this.clock = clock;</span>
+<span class="fc" id="L55">    }</span>
+
+    /**
+     * Список выдач с пагинацией и фильтрами (Задание 3).
+     *
+     * @param cardNumber фильтр по номеру билета читателя (необязательно)
+     * @param status     статус выдачи: ACTIVE, RETURNED, OVERDUE (необязательно)
+     * @param from       нижняя граница диапазона дат выдачи (необязательно)
+     * @param to         верхняя граница диапазона дат выдачи (необязательно)
+     * @param overdue    устаревший фильтр лабы № 4: эквивалентен status=OVERDUE
+     */
+    @GetMapping
+    @Operation(summary = &quot;Список выдач (пагинация и фильтры)&quot;,
+            description = &quot;Фильтры: cardNumber, status (ACTIVE/RETURNED/OVERDUE), from, to (диапазон дат выдачи, ISO-8601) + пагинация; сортировка по умолчанию issuedOn,desc&quot;)
+    public PageResponse&lt;LoanResponse&gt; findAll(
+            @RequestParam(value = &quot;cardNumber&quot;, required = false) String cardNumber,
+            @RequestParam(value = &quot;status&quot;, required = false) String status,
+            @RequestParam(value = &quot;from&quot;, required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(value = &quot;to&quot;, required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(value = &quot;overdue&quot;, defaultValue = &quot;false&quot;) boolean overdue,
+            @PageableDefault(size = 10, sort = &quot;issuedOn&quot;, direction = Sort.Direction.DESC) Pageable pageable) {
+<span class="fc" id="L76">        validatePageable(pageable);</span>
+<span class="fc" id="L77">        validateStatus(status);</span>
+
+<span class="fc" id="L79">        LocalDate today = LocalDate.now(clock);</span>
+
+        // Совместимость с лабой № 4: overdue=true эквивалентен status=OVERDUE
+<span class="pc bpc" id="L82" title="3 of 6 branches missed.">        String effectiveStatus = (status == null || status.isBlank()) &amp;&amp; overdue</span>
+<span class="fc" id="L83">                ? &quot;OVERDUE&quot;</span>
+<span class="fc" id="L84">                : status;</span>
+
+<span class="fc" id="L86">        Page&lt;Loan&gt; page = library.searchLoans(</span>
+<span class="fc" id="L87">                LoanSpecifications.search(cardNumber, effectiveStatus, from, to, today), pageable);</span>
+
+<span class="fc" id="L89">        return PageResponse.from(page.map(loan -&gt; LoanResponse.from(loan, today)));</span>
+    }
+
+    /** Выдача по идентификатору. */
+    @GetMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;Выдача по номеру&quot;)
+    public LoanResponse findById(@PathVariable long id) {
+<span class="nc" id="L96">        LocalDate today = LocalDate.now(clock);</span>
+<span class="nc" id="L97">        return LoanResponse.from(library.getLoan(id), today);</span>
+    }
+
+    /** Выдача книги читателю. */
+    @PostMapping
+    @Operation(summary = &quot;Выдать книгу&quot;)
+    public ResponseEntity&lt;LoanResponse&gt; issue(@Valid @RequestBody IssueRequest request) {
+<span class="fc" id="L104">        LocalDate today = LocalDate.now(clock);</span>
+<span class="fc" id="L105">        Loan loan = library.issueBook(request.cardNumber(), new Isbn(request.isbn()), today);</span>
+
+<span class="fc" id="L107">        LoanResponse body = LoanResponse.from(loan, today);</span>
+<span class="fc" id="L108">        return ResponseEntity</span>
+<span class="fc" id="L109">                .created(URI.create(&quot;/api/loans/&quot; + loan.getId()))</span>
+<span class="fc" id="L110">                .body(body);</span>
+    }
+
+    /**
+     * Пакетная выдача книг в одной транзакции.
+     * Если хотя бы одна книга не может быть выдана — транзакция откатывается,
+     * ни одна выдача не сохраняется, возвращается ошибка 404/409.
+     */
+    @PostMapping(&quot;/batch&quot;)
+    @Operation(summary = &quot;Пакетная выдача&quot;,
+            description = &quot;Все книги выдаются в одной транзакции: если хотя бы одна не может быть выдана, откат всей пакета&quot;)
+    public ResponseEntity&lt;java.util.List&lt;LoanResponse&gt;&gt; issueBatch(@Valid @RequestBody BatchIssueRequest request) {
+<span class="fc" id="L122">        LocalDate today = LocalDate.now(clock);</span>
+<span class="fc" id="L123">        java.util.List&lt;Loan&gt; loans = library.issueBooksBatch(</span>
+<span class="fc" id="L124">                request.cardNumber(),</span>
+<span class="fc" id="L125">                request.isbns().stream().map(Isbn::new).toList(),</span>
+                today);
+
+<span class="fc" id="L128">        java.util.List&lt;LoanResponse&gt; body = loans.stream()</span>
+<span class="fc" id="L129">                .map(loan -&gt; LoanResponse.from(loan, today))</span>
+<span class="fc" id="L130">                .toList();</span>
+<span class="fc" id="L131">        return ResponseEntity.created(URI.create(&quot;/api/loans/batch&quot;)).body(body);</span>
+    }
+
+    /** Возврат книги. */
+    @PostMapping(&quot;/{id}/return&quot;)
+    @Operation(summary = &quot;Возврат книги&quot;)
+    public LoanResponse returnBook(@PathVariable long id) {
+<span class="fc" id="L138">        LocalDate today = LocalDate.now(clock);</span>
+<span class="fc" id="L139">        Loan returned = library.returnBook(id, today);</span>
+<span class="fc" id="L140">        return LoanResponse.from(returned, today);</span>
+    }
+
+    // ------------------------------------------------------------------
+    // Валидация параметров пагинации и фильтров
+    // ------------------------------------------------------------------
+
+    /** Проверка размера страницы (не более 100). */
+    private static void validatePageable(Pageable pageable) {
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">        if (pageable.getPageSize() &gt; MAX_PAGE_SIZE) {</span>
+<span class="nc" id="L150">            throw new IllegalArgumentException(</span>
+<span class="nc" id="L151">                    &quot;Размер страницы не может быть больше &quot; + MAX_PAGE_SIZE + &quot;, получено: &quot; + pageable.getPageSize());</span>
+        }
+<span class="fc" id="L153">    }</span>
+
+    /** Проверка статуса выдачи: допустимы только ACTIVE, RETURNED, OVERDUE. */
+    private static void validateStatus(String status) {
+<span class="pc bpc" id="L157" title="5 of 6 branches missed.">        if (status != null &amp;&amp; !status.isBlank() &amp;&amp; !ALLOWED_STATUSES.contains(status.trim().toUpperCase())) {</span>
+<span class="nc" id="L158">            throw new IllegalArgumentException(</span>
+                    &quot;Недопустимый статус выдачи: &quot; + status + &quot;. Допустимые значения: &quot; + ALLOWED_STATUSES);
+        }
+<span class="fc" id="L161">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

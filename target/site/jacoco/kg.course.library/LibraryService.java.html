@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LibraryService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library</a> &gt; <span class="el_source">LibraryService.java</span></div><h1>LibraryService.java</h1><pre class="source lang-java linenums">package kg.course.library;
+
+import kg.course.library.entity.Author;
+import kg.course.library.entity.Book;
+import kg.course.library.entity.Loan;
+import kg.course.library.entity.Reader;
+import kg.course.library.repository.AuthorRepository;
+import kg.course.library.repository.BookRepository;
+import kg.course.library.repository.LoanRepository;
+import kg.course.library.repository.ReaderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Сервисный слой «Библиотека» — заменяет in-memory класс {@code Library}
+ * лабораторной работы № 3. Вся бизнес-логика выполняется поверх PostgreSQL
+ * (Spring Data JPA).
+ * &lt;p&gt;
+ * Методы, изменяющие данные, помечены {@code @Transactional}; методы чтения —
+ * {@code @Transactional(readOnly = true)}. Пять проверок при выдаче книги
+ * сохраняются в порядке лабораторной работы № 2:
+ * &lt;ol&gt;
+ *   &lt;li&gt;читатель существует;&lt;/li&gt;
+ *   &lt;li&gt;книга существует;&lt;/li&gt;
+ *   &lt;li&gt;нет просроченных выдач;&lt;/li&gt;
+ *   &lt;li&gt;лимит категории не превышен;&lt;/li&gt;
+ *   &lt;li&gt;есть свободные экземпляры.&lt;/li&gt;
+ * &lt;/ol&gt;
+ * &lt;/p&gt;
+ */
+@Service
+public class LibraryService {
+
+    private final BookRepository bookRepository;
+    private final AuthorRepository authorRepository;
+    private final ReaderRepository readerRepository;
+    private final LoanRepository loanRepository;
+
+    public LibraryService(BookRepository bookRepository,
+                          AuthorRepository authorRepository,
+                          ReaderRepository readerRepository,
+<span class="fc" id="L54">                          LoanRepository loanRepository) {</span>
+<span class="fc" id="L55">        this.bookRepository = bookRepository;</span>
+<span class="fc" id="L56">        this.authorRepository = authorRepository;</span>
+<span class="fc" id="L57">        this.readerRepository = readerRepository;</span>
+<span class="fc" id="L58">        this.loanRepository = loanRepository;</span>
+<span class="fc" id="L59">    }</span>
+
+    // ------------------------------------------------------------------
+    // Книги
+    // ------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List&lt;Book&gt; findAllBooks() {
+<span class="nc" id="L67">        return bookRepository.findAllByOrderByTitleAsc();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;Book&gt; searchByTitle(String fragment) {
+<span class="nc" id="L72">        return bookRepository.findByTitleContainingIgnoreCaseOrderByTitleAsc(fragment);</span>
+    }
+
+    /**
+     * Постраничная выборка всех книг (Задание 1). Авторы подгружаются одним
+     * запросом (@EntityGraph в репозитории) — N+1 не возникает.
+     */
+    @Transactional(readOnly = true)
+    public Page&lt;Book&gt; findBooks(Pageable pageable) {
+<span class="fc" id="L81">        return bookRepository.findAll(pageable);</span>
+    }
+
+    /**
+     * Поиск книг по спецификации (Задание 2). Спецификация комбинирует
+     * фильтры по названию, автору, диапазону года и наличию свободных
+     * экземпляров; отсутствующие параметры не участвуют в фильтрации.
+     */
+    @Transactional(readOnly = true)
+    public Page&lt;Book&gt; searchBooks(Specification&lt;Book&gt; spec, Pageable pageable) {
+<span class="fc" id="L91">        return bookRepository.findAll(spec, pageable);</span>
+    }
+
+    /** Поиск выдач по спецификации (Задание 3). */
+    @Transactional(readOnly = true)
+    public Page&lt;Loan&gt; searchLoans(Specification&lt;Loan&gt; spec, Pageable pageable) {
+<span class="fc" id="L97">        return loanRepository.findAll(spec, pageable);</span>
+    }
+
+    /**
+     * Обновление книги (Задание 4, PUT /api/books/{isbn}).
+     * &lt;p&gt;
+     * Оптимистическая блокировка: если {@code version} запроса не совпадает с
+     * текущей версией книги, выбрасывается {@link ObjectOptimisticLockingFailureException}
+     * (обрабатывается как 409 Conflict). Также запрещено уменьшать количество
+     * экземпляров ниже числа активных выдач (409 Conflict).
+     * &lt;/p&gt;
+     */
+    @Transactional
+    public Book updateBook(Isbn isbn, String title, int year, int copies, Integer version) {
+<span class="fc" id="L111">        Book book = getBook(isbn);</span>
+
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        if (!Objects.equals(book.getVersion(), version)) {</span>
+<span class="fc" id="L114">            throw new ObjectOptimisticLockingFailureException(Book.class, isbn.value());</span>
+        }
+
+<span class="fc" id="L117">        long activeLoans = loanRepository.countByBookIsbnAndReturnedOnIsNull(isbn);</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (copies &lt; activeLoans) {</span>
+<span class="fc" id="L119">            throw new BookUnavailableException(</span>
+<span class="fc" id="L120">                    &quot;Нельзя уменьшить количество экземпляров книги \&quot;&quot; + book.getTitle()</span>
+                            + &quot;\&quot; до &quot; + copies + &quot;: сейчас на руках &quot; + activeLoans);
+        }
+
+<span class="fc" id="L124">        book.setTitle(title);</span>
+<span class="fc" id="L125">        book.setYear(year);</span>
+<span class="fc" id="L126">        book.setCopies(copies);</span>
+<span class="fc" id="L127">        return bookRepository.save(book);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Optional&lt;Book&gt; findBook(Isbn isbn) {
+<span class="fc" id="L132">        return bookRepository.findByIsbn(isbn);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Book getBook(Isbn isbn) {
+<span class="fc" id="L137">        return findBook(isbn).orElseThrow(() -&gt;</span>
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">                new NotFoundException(&quot;Книга с ISBN &quot; + (isbn != null ? isbn.value() : &quot;null&quot;) + &quot; не найдена в каталоге&quot;));</span>
+    }
+
+    @Transactional(readOnly = true)
+    public int totalCopies(Isbn isbn) {
+<span class="fc" id="L143">        return getBook(isbn).getCopies();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public int availableCopies(Isbn isbn) {
+<span class="fc" id="L148">        return totalCopies(isbn) - (int) loanRepository.countByBookIsbnAndReturnedOnIsNull(isbn);</span>
+    }
+
+    /**
+     * Добавление книги в одной транзакции. Автор, уже существующий в базе,
+     * не создаётся повторно: сначала выполняется поиск по имени.
+     */
+    @Transactional
+    public Book addBook(Book book) {
+<span class="fc" id="L157">        Set&lt;Author&gt; resolvedAuthors = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">        for (Author author : book.getAuthors()) {</span>
+<span class="fc" id="L159">            Author resolved = authorRepository.findByName(author.getName())</span>
+<span class="fc" id="L160">                    .orElseGet(() -&gt; authorRepository.save(new Author(author.getName())));</span>
+<span class="fc" id="L161">            resolvedAuthors.add(resolved);</span>
+<span class="fc" id="L162">        }</span>
+<span class="fc" id="L163">        book.setAuthors(resolvedAuthors);</span>
+<span class="fc" id="L164">        return bookRepository.save(book);</span>
+    }
+
+    /**
+     * Удаление книги. При активных выдачах — {@link IllegalStateException} (409);
+     * иначе удаляются прошлые (возвращённые) выдачи и сама книга.
+     */
+    @Transactional
+    public void removeBook(Isbn isbn) {
+<span class="fc" id="L173">        Book book = getBook(isbn);</span>
+
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        if (loanRepository.existsByBookIsbnAndReturnedOnIsNull(isbn)) {</span>
+<span class="fc" id="L176">            throw new IllegalStateException(</span>
+<span class="fc" id="L177">                    &quot;Нельзя удалить книгу \&quot;&quot; + book.getTitle() + &quot;\&quot; (ISBN &quot; + isbn.value() + &quot;): есть активные выдачи&quot;);</span>
+        }
+
+<span class="nc" id="L180">        loanRepository.deleteByBookIsbn(isbn);</span>
+<span class="nc" id="L181">        bookRepository.delete(book);</span>
+<span class="nc" id="L182">    }</span>
+
+    // ------------------------------------------------------------------
+    // Читатели
+    // ------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List&lt;Reader&gt; findAllReaders() {
+<span class="nc" id="L190">        return readerRepository.findAll(org.springframework.data.domain.Sort.by(&quot;cardNumber&quot;));</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Optional&lt;Reader&gt; findReader(String cardNumber) {
+<span class="fc" id="L195">        return readerRepository.findById(cardNumber);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Reader getReader(String cardNumber) {
+<span class="fc" id="L200">        return findReader(cardNumber).orElseThrow(() -&gt;</span>
+<span class="fc" id="L201">                new NotFoundException(&quot;Читатель с номером билета &quot; + cardNumber + &quot; не зарегистрирован&quot;));</span>
+    }
+
+    @Transactional
+    public Reader registerReader(Reader reader) {
+<span class="fc" id="L206">        return readerRepository.save(reader);</span>
+    }
+
+    // ------------------------------------------------------------------
+    // Выдачи
+    // ------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List&lt;Loan&gt; findAllLoans() {
+<span class="nc" id="L215">        return loanRepository.findAllOrdered();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Loan getLoan(long id) {
+<span class="fc" id="L220">        return loanRepository.findLoanById(id).orElseThrow(() -&gt;</span>
+<span class="nc" id="L221">                new NotFoundException(&quot;Выдача с номером &quot; + id + &quot; не найдена&quot;));</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;Loan&gt; overdueLoans(LocalDate today) {
+<span class="nc" id="L226">        return loanRepository.findByReturnedOnIsNullAndDueOnBeforeOrderByDueOnAsc(today);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;Loan&gt; activeLoans(String cardNumber) {
+<span class="nc" id="L231">        return loanRepository.findByReaderCardNumberAndReturnedOnIsNull(cardNumber);</span>
+    }
+
+    /** Выдача книги читателю (пять проверок, одна транзакция). */
+    @Transactional
+    public Loan issueBook(String cardNumber, Isbn isbn, LocalDate date) {
+<span class="fc" id="L237">        Reader reader = getReader(cardNumber);</span>
+<span class="fc" id="L238">        Book book = getBook(isbn);</span>
+<span class="fc" id="L239">        return issueValidated(reader, book, date);</span>
+    }
+
+    /**
+     * Пакетная выдача книг: все выдачи выполняются в ОДНОЙ транзакции.
+     * Если выдача хотя бы одной книги невозможна, ни одна не сохраняется
+     * (транзакция откатывается полностью).
+     */
+    @Transactional
+    public List&lt;Loan&gt; issueBooksBatch(String cardNumber, List&lt;Isbn&gt; isbns, LocalDate date) {
+<span class="fc" id="L249">        Reader reader = getReader(cardNumber);</span>
+<span class="fc" id="L250">        List&lt;Loan&gt; issued = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L251" title="All 2 branches covered.">        for (Isbn isbn : isbns) {</span>
+<span class="fc" id="L252">            Book book = getBook(isbn);</span>
+<span class="fc" id="L253">            issued.add(issueValidated(reader, book, date));</span>
+<span class="fc" id="L254">        }</span>
+<span class="fc" id="L255">        return issued;</span>
+    }
+
+    /** Возврат книги читателем. */
+    @Transactional
+    public Loan returnBook(long id, LocalDate date) {
+<span class="fc" id="L261">        Loan loan = getLoan(id);</span>
+<span class="fc" id="L262">        return loanRepository.save(loan.markReturned(date));</span>
+    }
+
+    // ------------------------------------------------------------------
+    // Внутренняя логика: пять проверок
+    // ------------------------------------------------------------------
+
+    /**
+     * Единая точка выполнения пяти бизнес-проверок при выдаче. Работает как
+     * внутри обычной выдачи, так и внутри пакетной (loop в одной транзакции).
+     */
+    private Loan issueValidated(Reader reader, Book book, LocalDate date) {
+<span class="fc" id="L274">        String cardNumber = reader.getCardNumber();</span>
+
+        // Проверка 3: нет просроченных выдач
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (loanRepository.existsByReaderCardNumberAndReturnedOnIsNullAndDueOnBefore(cardNumber, date)) {</span>
+<span class="fc" id="L278">            throw new OverdueException(&quot;У читателя &quot; + cardNumber + &quot; есть просроченные выдачи на дату &quot; + date);</span>
+        }
+
+        // Проверка 4: лимит категории
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        if (loanRepository.countByReaderCardNumberAndReturnedOnIsNull(cardNumber) &gt;= reader.getCategory().maxBooks()) {</span>
+<span class="fc" id="L283">            throw new LimitExceededException(</span>
+<span class="fc" id="L284">                    &quot;Превышен лимит книг на руках (&quot; + reader.getCategory().maxBooks() + &quot;) для читателя &quot; + cardNumber);</span>
+        }
+
+        // Проверка 5: есть свободные экземпляры
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        if (loanRepository.countByBookIsbnAndReturnedOnIsNull(book.getIsbn()) &gt;= book.getCopies()) {</span>
+<span class="fc" id="L289">            throw new BookUnavailableException(&quot;Нет свободных экземпляров книги &quot; + book.getTitle() + &quot; &quot;);</span>
+        }
+
+<span class="fc" id="L292">        LocalDate dueOn = reader.getCategory().dueDate(date);</span>
+<span class="fc" id="L293">        return loanRepository.save(new Loan(book, reader, date, dueOn, null));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

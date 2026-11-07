@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LibraryUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library</a> &gt; <span class="el_source">LibraryUtils.java</span></div><h1>LibraryUtils.java</h1><pre class="source lang-java linenums">package kg.course.library;
+
+<span class="nc" id="L3">public class LibraryUtils {</span>
+    public static double average(int[] values) {
+<span class="fc bfc" id="L5" title="All 4 branches covered.">        if (values == null || values.length == 0) {</span>
+<span class="fc" id="L6">            throw new IllegalArgumentException(&quot;Массив пуст или равен null&quot;);</span>
+        }
+<span class="fc" id="L8">        double sum = 0;</span>
+<span class="fc bfc" id="L9" title="All 2 branches covered.">        for (int v : values) {</span>
+<span class="fc" id="L10">            sum += v;</span>
+        }
+<span class="fc" id="L12">        return sum / values.length;</span>
+    }
+
+    public static int max(int[] values) {
+<span class="pc bpc" id="L16" title="1 of 4 branches missed.">        if (values == null || values.length == 0) {</span>
+<span class="fc" id="L17">            throw new IllegalArgumentException(&quot;Массив пуст или равен null&quot;);</span>
+        }
+<span class="fc" id="L19">        int max = values[0];</span>
+<span class="fc bfc" id="L20" title="All 2 branches covered.">        for (int i = 1; i &lt; values.length; i++) {</span>
+<span class="fc bfc" id="L21" title="All 2 branches covered.">            if (values[i] &gt; max) {</span>
+<span class="fc" id="L22">                max = values[i];</span>
+            }
+        }
+<span class="fc" id="L25">        return max;</span>
+    }
+
+    public static int[] sortedCopy(int[] values) {
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        if (values == null) {</span>
+<span class="nc" id="L30">            throw new IllegalArgumentException(&quot;Массив равен null&quot;);</span>
+        }
+<span class="fc" id="L32">        int[] copy = new int[values.length];</span>
+<span class="fc bfc" id="L33" title="All 2 branches covered.">        for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="fc" id="L34">            copy[i] = values[i];</span>
+        }
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        for (int i = 0; i &lt; copy.length - 1; i++) {</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">            for (int j = 0; j &lt; copy.length - 1 - i; j++) {</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">                if (copy[j] &gt; copy[j + 1]) {</span>
+<span class="fc" id="L39">                    int temp = copy[j];</span>
+<span class="fc" id="L40">                    copy[j] = copy[j + 1];</span>
+<span class="fc" id="L41">                    copy[j + 1] = temp;</span>
+                }
+            }
+        }
+<span class="fc" id="L45">        return copy;</span>
+    }
+
+    public static String normalizePhone(String raw) {
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (raw == null) {</span>
+<span class="nc" id="L50">            throw new IllegalArgumentException(&quot;Строка телефона равна null&quot;);</span>
+        }
+<span class="fc" id="L52">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        for (int i = 0; i &lt; raw.length(); i++) {</span>
+<span class="fc" id="L54">            char c = raw.charAt(i);</span>
+<span class="pc bpc" id="L55" title="1 of 4 branches missed.">            if (c &gt;= '0' &amp;&amp; c &lt;= '9') {</span>
+<span class="fc" id="L56">                sb.append(c);</span>
+            }
+        }
+<span class="pc bpc" id="L59" title="1 of 4 branches missed.">        if (sb.length() == 10 &amp;&amp; sb.charAt(0) == '0') {</span>
+<span class="fc" id="L60">            sb.replace(0, 1, &quot;996&quot;);</span>
+        }
+<span class="pc bpc" id="L62" title="1 of 4 branches missed.">        if (sb.length() != 12 || !sb.toString().startsWith(&quot;996&quot;)) {</span>
+<span class="fc" id="L63">            throw new IllegalArgumentException(&quot;Неверный формат номера телефона: &quot; + raw);</span>
+        }
+<span class="fc" id="L65">        return &quot;+&quot; + sb;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Book.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.entity</a> &gt; <span class="el_source">Book.java</span></div><h1>Book.java</h1><pre class="source lang-java linenums">package kg.course.library.entity;
+
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import kg.course.library.Isbn;
+import org.springframework.data.domain.Persistable;
+
+import java.time.LocalDate;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * JPA-сущность «Книга».
+ * &lt;p&gt;
+ * Первичный ключ — ISBN (колонка {@code varchar(13)}). Доменный тип
+ * {@link Isbn} встраивается в сущность через {@code @EmbeddedId}
+ * (в колонке {@code isbn} сохраняется нормализованное значение).
+ * Связь с авторами — {@code @ManyToMany} через таблицу {@code book_authors}.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * Поле {@code version} — оптимистическая блокировка (Hibernate {@code @Version}):
+ * при каждом UPDATE значение увеличивается, и конкурентное обновление строки
+ * с устаревшей версией завершается {@code ObjectOptimisticLockingFailureException}
+ * (переводится в HTTP 409).
+ * &lt;/p&gt;
+ */
+@Entity
+@Table(name = &quot;books&quot;)
+public class Book implements Persistable&lt;Isbn&gt; {
+
+    @EmbeddedId
+    @AttributeOverride(name = &quot;value&quot;, column = @Column(name = &quot;isbn&quot;, length = 13, nullable = false))
+    private Isbn isbn;
+
+    @Column(name = &quot;title&quot;, nullable = false)
+    private String title;
+
+    @Column(name = &quot;year&quot;, nullable = false)
+    private int year;
+
+    @Column(name = &quot;copies&quot;, nullable = false)
+    private int copies;
+
+    /** Оптимистическая блокировка: null для новых объектов, 0 после первого сохранения. */
+    @Version
+    @Column(name = &quot;version&quot;, nullable = false)
+    private Integer version;
+
+<span class="fc" id="L58">    @ManyToMany</span>
+    @JoinTable(
+            name = &quot;book_authors&quot;,
+            joinColumns = @JoinColumn(name = &quot;book_isbn&quot;),
+            inverseJoinColumns = @JoinColumn(name = &quot;author_id&quot;))
+    private Set&lt;Author&gt; authors = new LinkedHashSet&lt;&gt;();
+
+    /** Конструктор без параметров для JPA (protected). */
+<span class="fc" id="L66">    protected Book() {</span>
+<span class="fc" id="L67">    }</span>
+
+    /**
+     * Открытый конструктор с проверкой аргументов.
+     *
+     * @param isbn        нормализуемый ISBN
+     * @param title       название книги
+     * @param authorNames имена авторов (создаются временные {@link Author})
+     * @param year        год издания
+     * @param copies      количество экземпляров
+     */
+<span class="fc" id="L78">    public Book(Isbn isbn, String title, List&lt;String&gt; authorNames, int year, int copies) {</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (isbn == null) {</span>
+<span class="fc" id="L80">            throw new IllegalArgumentException(&quot;ISBN не задан&quot;);</span>
+        }
+<span class="pc bpc" id="L82" title="1 of 4 branches missed.">        if (title == null || title.isBlank()) {</span>
+<span class="fc" id="L83">            throw new IllegalArgumentException(&quot;Название книги не может быть пустым&quot;);</span>
+        }
+<span class="pc bpc" id="L85" title="1 of 4 branches missed.">        if (authorNames == null || authorNames.isEmpty()) {</span>
+<span class="fc" id="L86">            throw new IllegalArgumentException(&quot;Список авторов не может быть пустым&quot;);</span>
+        }
+<span class="fc bfc" id="L88" title="All 4 branches covered.">        if (year &lt; 1450 || year &gt; LocalDate.now().getYear()) {</span>
+<span class="fc" id="L89">            throw new IllegalArgumentException(&quot;Год издания вне допустимого диапазона: &quot; + year);</span>
+        }
+<span class="fc bfc" id="L91" title="All 2 branches covered.">        if (copies &lt; 1) {</span>
+<span class="fc" id="L92">            throw new IllegalArgumentException(&quot;Количество экземпляров должно быть не меньше 1&quot;);</span>
+        }
+<span class="fc" id="L94">        this.isbn = isbn;</span>
+<span class="fc" id="L95">        this.title = title;</span>
+<span class="fc" id="L96">        this.year = year;</span>
+<span class="fc" id="L97">        this.copies = copies;</span>
+<span class="fc" id="L98">        Set&lt;Author&gt; initial = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        for (String name : authorNames) {</span>
+<span class="fc" id="L100">            initial.add(new Author(name));</span>
+<span class="fc" id="L101">        }</span>
+<span class="fc" id="L102">        this.authors = initial;</span>
+<span class="fc" id="L103">    }</span>
+
+    public Isbn getIsbn() {
+<span class="fc" id="L106">        return isbn;</span>
+    }
+
+    public String getTitle() {
+<span class="fc" id="L110">        return title;</span>
+    }
+
+    public void setTitle(String title) {
+<span class="fc" id="L114">        this.title = title;</span>
+<span class="fc" id="L115">    }</span>
+
+    public int getYear() {
+<span class="fc" id="L118">        return year;</span>
+    }
+
+    public void setYear(int year) {
+<span class="fc bfc" id="L122" title="All 4 branches covered.">        if (year &lt; 1450 || year &gt; LocalDate.now().getYear()) {</span>
+<span class="fc" id="L123">            throw new IllegalArgumentException(&quot;Год издания вне допустимого диапазона: &quot; + year);</span>
+        }
+<span class="fc" id="L125">        this.year = year;</span>
+<span class="fc" id="L126">    }</span>
+
+    public int getCopies() {
+<span class="fc" id="L129">        return copies;</span>
+    }
+
+    public void setCopies(int copies) {
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (copies &lt; 1) {</span>
+<span class="fc" id="L134">            throw new IllegalArgumentException(&quot;Количество экземпляров должно быть не меньше 1&quot;);</span>
+        }
+<span class="fc" id="L136">        this.copies = copies;</span>
+<span class="fc" id="L137">    }</span>
+
+    public Integer getVersion() {
+<span class="fc" id="L140">        return version;</span>
+    }
+
+    /** Используется тестами и инициализацией новых объектов. */
+    public void setVersion(Integer version) {
+<span class="fc" id="L145">        this.version = version;</span>
+<span class="fc" id="L146">    }</span>
+
+    /** {@code Persistable}: новая книга определяется по {@code version == null}. */
+    @Override
+    public boolean isNew() {
+<span class="fc bfc" id="L151" title="All 2 branches covered.">        return version == null;</span>
+    }
+
+    @Override
+    public Isbn getId() {
+<span class="fc" id="L156">        return isbn;</span>
+    }
+
+    public Set&lt;Author&gt; getAuthors() {
+<span class="fc" id="L160">        return authors;</span>
+    }
+
+    public void setAuthors(Set&lt;Author&gt; authors) {
+<span class="fc" id="L164">        this.authors = authors;</span>
+<span class="fc" id="L165">    }</span>
+
+    public void addAuthor(Author author) {
+<span class="fc" id="L168">        this.authors.add(author);</span>
+<span class="fc" id="L169">    }</span>
+
+    /** {@code equals}/{@code hashCode} — только по первичному ключу. */
+    @Override
+    public boolean equals(Object o) {
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (this == o) {</span>
+<span class="fc" id="L175">            return true;</span>
+        }
+<span class="fc bfc" id="L177" title="All 4 branches covered.">        if (o == null || getClass() != o.getClass()) {</span>
+<span class="fc" id="L178">            return false;</span>
+        }
+<span class="fc" id="L180">        Book book = (Book) o;</span>
+<span class="pc bpc" id="L181" title="1 of 4 branches missed.">        return isbn != null &amp;&amp; Objects.equals(isbn, book.isbn);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="fc" id="L186">        return getClass().hashCode();</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="fc" id="L191">        return &quot;Book{isbn=&quot; + isbn + &quot;, title='&quot; + title + &quot;', year=&quot; + year + &quot;, copies=&quot; + copies</span>
+                + &quot;, version=&quot; + version + &quot;, authors=&quot; + authors + &quot;}&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

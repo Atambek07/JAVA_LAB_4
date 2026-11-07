@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LibraryReports.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library</a> &gt; <span class="el_source">LibraryReports.java</span></div><h1>LibraryReports.java</h1><pre class="source lang-java linenums">package kg.course.library;
+
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+
+public class LibraryReports {
+    private final Library library;
+
+<span class="fc" id="L14">    public LibraryReports(Library library) {</span>
+<span class="fc" id="L15">        this.library = library;</span>
+<span class="fc" id="L16">    }</span>
+
+    public List&lt;Book&gt; searchByTitle(String fragment) {
+<span class="nc" id="L19">        String lowerFragment = fragment.toLowerCase();</span>
+<span class="nc" id="L20">        return library.findAllBooks().stream()</span>
+<span class="nc" id="L21">                .filter(book -&gt; book.title().toLowerCase().contains(lowerFragment))</span>
+<span class="nc" id="L22">                .sorted(Comparator.comparing(Book::title))</span>
+<span class="nc" id="L23">                .toList();</span>
+    }
+
+    public List&lt;Loan&gt; overdueLoans(LocalDate today) {
+<span class="fc" id="L27">        return library.findAllLoans().stream()</span>
+<span class="fc" id="L28">                .filter(loan -&gt; loan.isOverdue(today))</span>
+<span class="fc" id="L29">                .sorted(Comparator.comparing(Loan::dueOn))</span>
+<span class="fc" id="L30">                .toList();</span>
+    }
+
+    public Map&lt;ReaderCategory, Long&gt; loansByCategory() {
+<span class="nc" id="L34">        return library.findAllLoans().stream()</span>
+<span class="nc" id="L35">                .collect(Collectors.groupingBy(</span>
+<span class="nc" id="L36">                        loan -&gt; library.getReader(loan.cardNumber()).category(),</span>
+<span class="nc" id="L37">                        Collectors.counting()</span>
+                ));
+    }
+
+    public SortedSet&lt;String&gt; allAuthors() {
+<span class="nc" id="L42">        return library.findAllBooks().stream()</span>
+<span class="nc" id="L43">                .flatMap(book -&gt; book.authors().stream())</span>
+<span class="nc" id="L44">                .collect(Collectors.toCollection(TreeSet::new));</span>
+    }
+
+    public List&lt;BookStat&gt; topBooks(int n) {
+<span class="nc" id="L48">        Map&lt;Isbn, Long&gt; counts = library.findAllLoans().stream()</span>
+<span class="nc" id="L49">                .collect(Collectors.groupingBy(Loan::isbn, Collectors.counting()));</span>
+
+<span class="nc" id="L51">        return library.findAllBooks().stream()</span>
+<span class="nc" id="L52">                .map(book -&gt; new BookStat(book.title(), counts.getOrDefault(book.isbn(), 0L)))</span>
+<span class="nc" id="L53">                .sorted(Comparator.comparingLong(BookStat::loans).reversed()</span>
+<span class="nc" id="L54">                        .thenComparing(BookStat::title))</span>
+<span class="nc" id="L55">                .limit(n)</span>
+<span class="nc" id="L56">                .toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

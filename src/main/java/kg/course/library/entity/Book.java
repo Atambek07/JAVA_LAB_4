@@ -8,7 +8,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import kg.course.library.Isbn;
+import org.springframework.data.domain.Persistable;
 
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
@@ -24,10 +26,16 @@ import java.util.Set;
  * (в колонке {@code isbn} сохраняется нормализованное значение).
  * Связь с авторами — {@code @ManyToMany} через таблицу {@code book_authors}.
  * </p>
+ * <p>
+ * Поле {@code version} — оптимистическая блокировка (Hibernate {@code @Version}):
+ * при каждом UPDATE значение увеличивается, и конкурентное обновление строки
+ * с устаревшей версией завершается {@code ObjectOptimisticLockingFailureException}
+ * (переводится в HTTP 409).
+ * </p>
  */
 @Entity
 @Table(name = "books")
-public class Book {
+public class Book implements Persistable<Isbn> {
 
     @EmbeddedId
     @AttributeOverride(name = "value", column = @Column(name = "isbn", length = 13, nullable = false))
@@ -41,6 +49,11 @@ public class Book {
 
     @Column(name = "copies", nullable = false)
     private int copies;
+
+    /** Оптимистическая блокировка: null для новых объектов, 0 после первого сохранения. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Integer version;
 
     @ManyToMany
     @JoinTable(
@@ -105,12 +118,42 @@ public class Book {
         return year;
     }
 
+    public void setYear(int year) {
+        if (year < 1450 || year > LocalDate.now().getYear()) {
+            throw new IllegalArgumentException("Год издания вне допустимого диапазона: " + year);
+        }
+        this.year = year;
+    }
+
     public int getCopies() {
         return copies;
     }
 
     public void setCopies(int copies) {
+        if (copies < 1) {
+            throw new IllegalArgumentException("Количество экземпляров должно быть не меньше 1");
+        }
         this.copies = copies;
+    }
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    /** Используется тестами и инициализацией новых объектов. */
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    /** {@code Persistable}: новая книга определяется по {@code version == null}. */
+    @Override
+    public boolean isNew() {
+        return version == null;
+    }
+
+    @Override
+    public Isbn getId() {
+        return isbn;
     }
 
     public Set<Author> getAuthors() {
@@ -145,6 +188,7 @@ public class Book {
 
     @Override
     public String toString() {
-        return "Book{isbn=" + isbn + ", title='" + title + "', year=" + year + ", copies=" + copies + ", authors=" + authors + "}";
+        return "Book{isbn=" + isbn + ", title='" + title + "', year=" + year + ", copies=" + copies
+                + ", version=" + version + ", authors=" + authors + "}";
     }
 }

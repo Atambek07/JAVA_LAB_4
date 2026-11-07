@@ -1,4 +1,5 @@
 kg/course/library/web/BookController.class
+kg/course/library/repository/UserRepository.class
 kg/course/library/LibraryApplication.class
 kg/course/library/Item.class
 kg/course/library/repository/ReaderRepository.class
@@ -8,11 +9,14 @@ kg/course/library/Reader.class
 kg/course/library/config/LibraryConfig.class
 kg/course/library/LibraryException.class
 kg/course/library/Magazine.class
+kg/course/library/entity/User.class
 kg/course/library/web/ApiExceptionHandler.class
 kg/course/library/web/ApiExceptionHandler$FieldErrorItem.class
 kg/course/library/Describable.class
 kg/course/library/NotFoundException.class
 kg/course/library/entity/Author.class
+kg/course/library/web/UserResponse.class
+kg/course/library/web/PageResponse.class
 kg/course/library/Loan.class
 kg/course/library/Book.class
 kg/course/library/web/BatchIssueRequest.class
@@ -20,6 +24,7 @@ kg/course/library/Isbn.class
 kg/course/library/web/CreateBookRequest.class
 kg/course/library/web/CreateReaderRequest.class
 kg/course/library/BookStat.class
+kg/course/library/UserService.class
 kg/course/library/ReaderCategory.class
 kg/course/library/repository/BookRepository.class
 kg/course/library/repository/ReportRepository$BookSearchRow.class
@@ -30,6 +35,7 @@ kg/course/library/web/LoanResponse.class
 kg/course/library/web/BookResponse.class
 kg/course/library/web/IssueRequest.class
 kg/course/library/LibraryReports.class
+kg/course/library/repository/LoanSpecifications.class
 kg/course/library/entity/Book.class
 kg/course/library/entity/Reader.class
 kg/course/library/ImportResult.class
@@ -38,12 +44,18 @@ kg/course/library/LibraryService.class
 kg/course/library/entity/Loan.class
 kg/course/library/web/LoanController.class
 kg/course/library/repository/AuthorRepository.class
+kg/course/library/web/InvalidSortException.class
+kg/course/library/web/UpdateBookRequest.class
 kg/course/library/BookUnavailableException.class
+kg/course/library/web/UpdateUserRequest.class
+kg/course/library/repository/BookSpecifications.class
 kg/course/library/BookCsvImporter.class
 kg/course/library/Library.class
 kg/course/library/repository/ReportRepository.class
 kg/course/library/web/ReportController.class
+kg/course/library/web/CreateUserRequest.class
 kg/course/library/ReaderCard.class
 kg/course/library/repository/LoanRepository.class
+kg/course/library/web/UsersController.class
 kg/course/library/LimitExceededException.class
 kg/course/library/LibraryUtils.class

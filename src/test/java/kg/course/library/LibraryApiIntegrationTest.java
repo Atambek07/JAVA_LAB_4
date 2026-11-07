@@ -11,8 +11,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -32,9 +35,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Интеграционные тесты REST API (MockMvc + @SpringBootTest) поверх PostgreSQL.
+ * Интеграционные тесты REST API (MockMvc + {@code @SpringBootTest}) поверх PostgreSQL.
  * <p>
- * Хранилище данных — база PostgreSQL (команда {@code docker compose up -d}).
+ * Хранилище данных — Testcontainers PostgreSQL 17: контейнер поднимается один раз
+ * на класс теста (до загрузки контекста), а параметры подключения передаются в
+ * Spring через {@code @DynamicPropertySource}. Тесты полностью самодостаточны и не
+ * зависят от состояния локального {@code docker compose}.
  * Дата «сегодня» фиксирована (2026-03-20) через {@link TestClockConfig}.
  * Перед каждым тестом таблицы очищаются ({@code JdbcTemplate}), чтобы тесты
  * не зависели от seed-данных миграции V2 и друг от друга.
@@ -45,6 +51,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(TestClockConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class LibraryApiIntegrationTest {
+
+    /** PostgreSQL 17 в контейнере: поднимается один раз на весь класс. */
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17");
+
+    static {
+        // Контейнер должен быть запущен ДО первого создания контекста Spring:
+        // при @DirtiesContext контекст пересоздаётся, а контейнер живёт один раз на класс.
+        POSTGRES.start();
+    }
+
+    /** Динамические свойства подключения (порт Testcontainers выбирается случайно). */
+    @DynamicPropertySource
+    static void datasourceProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
 
     @Autowired
     private MockMvc mockMvc;
@@ -160,8 +183,8 @@ class LibraryApiIntegrationTest {
         createBook("978-5-4461-0914-9", "Java. Эффективное программирование");
         mockMvc.perform(get("/api/books").param("q", "java"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].title").value("Java. Эффективное программирование"));
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].title").value("Java. Эффективное программирование"));
     }
 
     @Test
@@ -312,12 +335,12 @@ class LibraryApiIntegrationTest {
 
         mockMvc.perform(get("/api/loans").param("overdue", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].overdue").value(true));
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].overdue").value(true));
 
         mockMvc.perform(get("/api/loans"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)));
+                .andExpect(jsonPath("$.content", hasSize(1)));
     }
 
     // ------------------------------------------------------------------

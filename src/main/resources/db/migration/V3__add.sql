@@ -1,0 +1,10 @@
+CREATE TABLE users(
+    id   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255),
+    age INT,
+    inn BIGINT NOT NULL UNIQUE check ( inn >= 10000000000000 and inn <= 99999999999999 )
+);
+
+INSERT INTO users(name, age, inn) VALUES
+    ('Atambek', 19, 22406200801061),
+    ('Alina', 21, 12005200600845);

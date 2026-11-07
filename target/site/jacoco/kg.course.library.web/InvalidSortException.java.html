@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InvalidSortException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.web</a> &gt; <span class="el_source">InvalidSortException.java</span></div><h1>InvalidSortException.java</h1><pre class="source lang-java linenums">package kg.course.library.web;
+
+import kg.course.library.LibraryException;
+
+import java.util.List;
+
+/**
+ * Сортировка по полю, не входящему в разрешённый список — 400 Bad Request (Задание 1).
+ */
+public class InvalidSortException extends LibraryException {
+
+    private final List&lt;String&gt; invalidFields;
+
+    public InvalidSortException(List&lt;String&gt; invalidFields, java.util.Set&lt;String&gt; allowedFields) {
+<span class="fc" id="L15">        super(&quot;Сортировка разрешена только по полям &quot; + allowedFields</span>
+                + &quot;, получено недопустимое поле(я): &quot; + invalidFields);
+<span class="fc" id="L17">        this.invalidFields = List.copyOf(invalidFields);</span>
+<span class="fc" id="L18">    }</span>
+
+    public List&lt;String&gt; getInvalidFields() {
+<span class="nc" id="L21">        return invalidFields;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="ru"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">library</a> &gt; <a href="index.source.html" class="el_package">kg.course.library.web</a> &gt; <span class="el_source">ApiExceptionHandler.java</span></div><h1>ApiExceptionHandler.java</h1><pre class="source lang-java linenums">package kg.course.library.web;
+
+import kg.course.library.BookUnavailableException;
+import kg.course.library.LibraryException;
+import kg.course.library.LimitExceededException;
+import kg.course.library.NotFoundException;
+import kg.course.library.OverdueException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import java.net.URI;
+import java.util.List;
+
+/**
+ * Централизованная обработка ошибок REST API в формате Problem Details (RFC 9457).
+ * &lt;p&gt;
+ * Ответ имеет Content-Type {@code application/problem+json} и стандартные поля:
+ * {@code type}, {@code title}, {@code status}, {@code detail}, {@code instance}.
+ * Для ошибок валидации дополнительно добавляется свойство {@code errors} —
+ * список объектов {@code {field, message}}.
+ * &lt;/p&gt;
+ */
+@RestControllerAdvice
+<span class="fc" id="L36">public class ApiExceptionHandler extends ResponseEntityExceptionHandler {</span>
+
+<span class="fc" id="L38">    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);</span>
+
+    /** Книга/читатель/выдача не найдены — 404 Not Found. */
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity&lt;Object&gt; handleNotFound(NotFoundException ex, WebRequest request) {
+<span class="fc" id="L43">        return toResponse(ex, HttpStatus.NOT_FOUND, ex.getMessage(), request);</span>
+    }
+
+    /** Конфликт бизнес-правил (нет экземпляров, превышен лимит, просрочка) — 409 Conflict. */
+    @ExceptionHandler({BookUnavailableException.class, LimitExceededException.class, OverdueException.class})
+    public ResponseEntity&lt;Object&gt; handleConflict(LibraryException ex, WebRequest request) {
+<span class="fc" id="L49">        return toResponse(ex, HttpStatus.CONFLICT, ex.getMessage(), request);</span>
+    }
+
+    /**
+     * Сортировка по недопустимому полю — 400 Bad Request (Задание 1).
+     */
+    @ExceptionHandler(InvalidSortException.class)
+    public ResponseEntity&lt;Object&gt; handleInvalidSort(InvalidSortException ex, WebRequest request) {
+<span class="fc" id="L57">        return toResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage(), request);</span>
+    }
+
+    /**
+     * Оптимистическая блокировка: версия объекта устарела (Задание 4) — 409 Conflict.
+     * Возникает, когда клиент отправляет PUT с версией, не совпадающей с текущей
+     * в базе, или когда конкурентное обновление уже произошло.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity&lt;Object&gt; handleOptimisticLock(ObjectOptimisticLockingFailureException ex, WebRequest request) {
+<span class="fc" id="L67">        log.warn(&quot;Конфликт версий (оптимистическая блокировка): {}&quot;, ex.getMessage());</span>
+<span class="fc" id="L68">        return toResponse(ex, HttpStatus.CONFLICT,</span>
+                &quot;Данные были изменены другим пользователем: версия устарела. &quot;
+                        + &quot;Получите актуальные данные и повторите попытку.&quot;, request);
+    }
+
+    /** Общий конфликт (повторное создание, удаление с активными выдачами) — 409 Conflict. */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity&lt;Object&gt; handleIllegalState(IllegalStateException ex, WebRequest request) {
+<span class="fc" id="L76">        return toResponse(ex, HttpStatus.CONFLICT, ex.getMessage(), request);</span>
+    }
+
+    /** Некорректные входные данные (например, неверный ISBN) — 400 Bad Request. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity&lt;Object&gt; handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
+<span class="fc" id="L82">        return toResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage(), request);</span>
+    }
+
+    /**
+     * Нарушение целостности на уровне БД (например, гонка при создании
+     * дубликата) — 409 Conflict. Появляется, когда наличие значения уже
+     * проверено в сервисе, но параллельный запрос успел вставить дубликат.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity&lt;Object&gt; handleDataIntegrity(DataIntegrityViolationException ex, WebRequest request) {
+<span class="nc" id="L92">        return toResponse(ex, HttpStatus.CONFLICT,</span>
+                &quot;Такое значение уже существует в базе данных (конфликт целостности)&quot;, request);
+    }
+
+    /**
+     * Ошибки валидации {@code @Valid} — 400 Bad Request. В ProblemDetail
+     * добавляется свойство {@code errors} со списком полей и сообщений.
+     */
+    @Override
+    protected ResponseEntity&lt;Object&gt; handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+
+<span class="fc" id="L104">        List&lt;FieldErrorItem&gt; errors = ex.getBindingResult().getFieldErrors().stream()</span>
+<span class="fc" id="L105">                .map(fieldError -&gt; new FieldErrorItem(</span>
+<span class="fc" id="L106">                        fieldError.getField(),</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">                        fieldError.getDefaultMessage() == null ? &quot;Недопустимое значение&quot; : fieldError.getDefaultMessage()))</span>
+<span class="fc" id="L108">                .toList();</span>
+
+<span class="fc" id="L110">        ProblemDetail problemDetail = problemDetail(HttpStatus.BAD_REQUEST,</span>
+                &quot;Переданные данные не прошли проверку&quot;, request);
+<span class="fc" id="L112">        problemDetail.setProperty(&quot;errors&quot;, errors);</span>
+
+<span class="fc" id="L114">        return handleExceptionInternal(ex, problemDetail, headers, status, request);</span>
+    }
+
+    /**
+     * Любое необработанное исключение — 500 Internal Server Error.
+     * Клиенту не раскрываются текст и трассировка стека, подробности пишутся в журнал.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity&lt;Object&gt; handleGeneric(Exception ex, WebRequest request) {
+<span class="fc" id="L123">        log.error(&quot;Необработанное исключение: {}&quot;, ex.getMessage(), ex);</span>
+<span class="fc" id="L124">        ProblemDetail problemDetail = problemDetail(HttpStatus.INTERNAL_SERVER_ERROR,</span>
+                &quot;Внутренняя ошибка сервера&quot;, request);
+<span class="fc" id="L126">        return handleExceptionInternal(ex, problemDetail, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, request);</span>
+    }
+
+    private ResponseEntity&lt;Object&gt; toResponse(Exception ex, HttpStatus status, String detail, WebRequest request) {
+<span class="fc" id="L130">        return handleExceptionInternal(ex, problemDetail(status, detail, request), new HttpHeaders(), status, request);</span>
+    }
+
+    /** Формирует ProblemDetail со стандартными полями и корректным instance. */
+    private ProblemDetail problemDetail(HttpStatus status, String detail, WebRequest request) {
+<span class="fc" id="L135">        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, detail);</span>
+<span class="fc" id="L136">        problemDetail.setTitle(status.getReasonPhrase());</span>
+<span class="fc" id="L137">        problemDetail.setInstance(URI.create(instancePath(request)));</span>
+<span class="fc" id="L138">        return problemDetail;</span>
+    }
+
+    /** Извлекает путь запроса для поля {@code instance}, например {@code /api/loans}. */
+    private String instancePath(WebRequest request) {
+<span class="fc" id="L143">        String description = request.getDescription(false);</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        return description.startsWith(&quot;uri=&quot;) ? description.substring(4) : description;</span>
+    }
+
+    /** Элемент списка {@code errors} в ответе на ошибку валидации. */
+<span class="fc" id="L148">    public record FieldErrorItem(String field, String message) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

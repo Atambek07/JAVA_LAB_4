@@ -1,5 +1,11 @@
+kg/course/library/entity/EntitiesValidationTest$1.class
+kg/course/library/web/BookControllerTest.class
+kg/course/library/entity/EntitiesValidationTest$2.class
+kg/course/library/LibraryTest.class
 kg/course/library/web/TestBoomController.class
 kg/course/library/LibraryLab2Test.class
+kg/course/library/repository/RepositoryTest.class
 kg/course/library/config/TestClockConfig.class
+kg/course/library/entity/EntitiesValidationTest.class
+kg/course/library/LibraryServiceTest.class
 kg/course/library/LibraryApiIntegrationTest.class
-kg/course/library/LibraryTest.class

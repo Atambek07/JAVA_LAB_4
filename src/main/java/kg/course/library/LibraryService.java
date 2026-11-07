@@ -8,7 +8,10 @@ import kg.course.library.repository.AuthorRepository;
 import kg.course.library.repository.BookRepository;
 import kg.course.library.repository.LoanRepository;
 import kg.course.library.repository.ReaderRepository;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +19,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -66,6 +70,61 @@ public class LibraryService {
     @Transactional(readOnly = true)
     public List<Book> searchByTitle(String fragment) {
         return bookRepository.findByTitleContainingIgnoreCaseOrderByTitleAsc(fragment);
+    }
+
+    /**
+     * Постраничная выборка всех книг (Задание 1). Авторы подгружаются одним
+     * запросом (@EntityGraph в репозитории) — N+1 не возникает.
+     */
+    @Transactional(readOnly = true)
+    public Page<Book> findBooks(Pageable pageable) {
+        return bookRepository.findAll(pageable);
+    }
+
+    /**
+     * Поиск книг по спецификации (Задание 2). Спецификация комбинирует
+     * фильтры по названию, автору, диапазону года и наличию свободных
+     * экземпляров; отсутствующие параметры не участвуют в фильтрации.
+     */
+    @Transactional(readOnly = true)
+    public Page<Book> searchBooks(Specification<Book> spec, Pageable pageable) {
+        return bookRepository.findAll(spec, pageable);
+    }
+
+    /** Поиск выдач по спецификации (Задание 3). */
+    @Transactional(readOnly = true)
+    public Page<Loan> searchLoans(Specification<Loan> spec, Pageable pageable) {
+        return loanRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * Обновление книги (Задание 4, PUT /api/books/{isbn}).
+     * <p>
+     * Оптимистическая блокировка: если {@code version} запроса не совпадает с
+     * текущей версией книги, выбрасывается {@link ObjectOptimisticLockingFailureException}
+     * (обрабатывается как 409 Conflict). Также запрещено уменьшать количество
+     * экземпляров ниже числа активных выдач (409 Conflict).
+     * </p>
+     */
+    @Transactional
+    public Book updateBook(Isbn isbn, String title, int year, int copies, Integer version) {
+        Book book = getBook(isbn);
+
+        if (!Objects.equals(book.getVersion(), version)) {
+            throw new ObjectOptimisticLockingFailureException(Book.class, isbn.value());
+        }
+
+        long activeLoans = loanRepository.countByBookIsbnAndReturnedOnIsNull(isbn);
+        if (copies < activeLoans) {
+            throw new BookUnavailableException(
+                    "Нельзя уменьшить количество экземпляров книги \"" + book.getTitle()
+                            + "\" до " + copies + ": сейчас на руках " + activeLoans);
+        }
+
+        book.setTitle(title);
+        book.setYear(year);
+        book.setCopies(copies);
+        return bookRepository.save(book);
     }
 
     @Transactional(readOnly = true)
@@ -128,7 +187,7 @@ public class LibraryService {
 
     @Transactional(readOnly = true)
     public List<Reader> findAllReaders() {
-        return readerRepository.findAll(Sort.by("cardNumber"));
+        return readerRepository.findAll(org.springframework.data.domain.Sort.by("cardNumber"));
     }
 
     @Transactional(readOnly = true)

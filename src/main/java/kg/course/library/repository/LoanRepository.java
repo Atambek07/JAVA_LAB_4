@@ -2,8 +2,12 @@ package kg.course.library.repository;
 
 import kg.course.library.Isbn;
 import kg.course.library.entity.Loan;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,7 +23,7 @@ import java.util.Optional;
  * проблему N+1 при формировании ответа {@code GET /api/loans}.
  * </p>
  */
-public interface LoanRepository extends JpaRepository<Loan, Long> {
+public interface LoanRepository extends JpaRepository<Loan, Long>, JpaSpecificationExecutor<Loan> {
 
     /** Все выдачи с книгой и читателем, отсортированные по дате выдачи. */
     @EntityGraph(attributePaths = {"book", "reader"})
@@ -56,4 +60,12 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
     /** Удаление всех выдач книги (необходимо перед удалением самой книги). */
     void deleteByBookIsbn(Isbn isbn);
+
+    /**
+     * Постраничная выборка выдач по спецификации (Задание 3).
+     * @EntityGraph подгружает книгу и читателя одним запросом (без N+1).
+     */
+    @Override
+    @EntityGraph(attributePaths = {"book", "reader"})
+    Page<Loan> findAll(Specification<Loan> spec, Pageable pageable);
 }

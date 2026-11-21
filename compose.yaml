@@ -13,7 +13,7 @@ services:
     ports:
       # Хост-порт по умолчанию 5432 (по заданию). Если на хосте уже занят другим
       # сервером PostgreSQL, можно переопределить: export DB_PORT=5433
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-6767}:5432"
     volumes:
       - library-db-data:/var/lib/postgresql/data
     healthcheck:
